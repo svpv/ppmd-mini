@@ -52,14 +52,17 @@ static Byte Read(void *p)
     return c;
 }
 
+static int opt_mem = 8;
+static int opt_order = 6;
+
 static int compress(void)
 {
     struct CharWriter cw = { Write, stdout };
     CPpmd8 ppmd = { .Stream.Out = (IByteOut *) &cw };
     Ppmd8_Construct(&ppmd);
-    Ppmd8_Alloc(&ppmd, 1<<20, &ialloc);
+    Ppmd8_Alloc(&ppmd, opt_mem << 20, &ialloc);
     Ppmd8_RangeEnc_Init(&ppmd);
-    Ppmd8_Init(&ppmd, 5, 0);
+    Ppmd8_Init(&ppmd, opt_order, 0);
 
     unsigned char buf[BUFSIZ];
     size_t n;
@@ -79,9 +82,9 @@ static int decompress(void)
     struct CharReader cr = { Read, stdin, 0 };
     CPpmd8 ppmd = { .Stream.In = (IByteIn *) &cr };
     Ppmd8_Construct(&ppmd);
-    Ppmd8_Alloc(&ppmd, 1<<20, &ialloc);
+    Ppmd8_Alloc(&ppmd, opt_mem << 20, &ialloc);
     Ppmd8_RangeDec_Init(&ppmd);
-    Ppmd8_Init(&ppmd, 5, 0);
+    Ppmd8_Init(&ppmd, opt_order, 0);
 
     unsigned char buf[BUFSIZ];
     size_t n = 0;
@@ -109,19 +112,35 @@ int main(int argc, char **argv)
 	{ "uncompress", 0, NULL, 'd' },
 	{ "stdout",     0, NULL, 'c' },
 	{ "to-stdout",  0, NULL, 'c' },
+	{ "memory",     1, NULL, 'm' },
+	{ "order",      1, NULL, 'o' },
 	{ "help",       0, NULL, 'h' },
 	{  NULL,        0, NULL,  0  },
     };
     bool opt_d = 0;
     bool opt_c = 0;
     int c;
-    while ((c = getopt_long(argc, argv, "dch", longopts, NULL)) != -1) {
+    while ((c = getopt_long(argc, argv, "dcm:o:36h", longopts, NULL)) != -1) {
 	switch (c) {
 	case 'd':
 	    opt_d = 1;
 	    break;
 	case 'c':
 	    opt_c = 1;
+	    break;
+	case 'm':
+	    opt_mem = atoi(optarg);
+	    break;
+	case 'o':
+	    opt_order = atoi(optarg);
+	    break;
+	case '3':
+	    opt_mem = 1;
+	    opt_order = 5;
+	    break;
+	case '6':
+	    opt_mem = 8;
+	    opt_order = 6;
 	    break;
 	default:
 	    goto usage;
