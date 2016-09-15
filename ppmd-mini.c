@@ -54,9 +54,24 @@ static Byte Read(void *p)
 
 static int opt_mem = 8;
 static int opt_order = 6;
+static int opt_restore = 0;
+
+struct header {
+    unsigned magic, attr;
+    unsigned short info, fnlen;
+    unsigned short date, time;
+} hdr = {
+#define MAGIC 0x84ACAF8F
+    MAGIC, /* FILE_ATTRIBUTE_NORMAL */ 0x80,
+    0, 1, 0, 0,
+};
 
 static int compress(void)
 {
+    hdr.info = (opt_order - 1) | ((opt_mem - 1) << 4) | (('I' - 'A') << 12);
+    fwrite(&hdr, sizeof hdr, 1, stdout);
+    putchar('a');
+
     struct CharWriter cw = { Write, stdout };
     CPpmd8 ppmd = { .Stream.Out = (IByteOut *) &cw };
     Ppmd8_Construct(&ppmd);
@@ -79,12 +94,25 @@ static int compress(void)
 
 static int decompress(void)
 {
+    if (fread(&hdr, sizeof hdr, 1, stdin) != 1)
+	return 1;
+    if (hdr.magic != MAGIC)
+	return 1;
+    if (hdr.info >> 12 != 'I' - 'A')
+	return 1;
+    if (fseek(stdin, hdr.fnlen & 0x1FF, SEEK_CUR) != 0)
+	return 1;
+
+    opt_restore = hdr.fnlen >> 14;
+    opt_order = (hdr.info & 0xf) + 1;
+    opt_mem = ((hdr.info >> 4) & 0xff) + 1;
+
     struct CharReader cr = { Read, stdin, 0 };
     CPpmd8 ppmd = { .Stream.In = (IByteIn *) &cr };
     Ppmd8_Construct(&ppmd);
     Ppmd8_Alloc(&ppmd, opt_mem << 20, &ialloc);
     Ppmd8_RangeDec_Init(&ppmd);
-    Ppmd8_Init(&ppmd, opt_order, 0);
+    Ppmd8_Init(&ppmd, opt_order, opt_restore);
 
     unsigned char buf[BUFSIZ];
     size_t n = 0;
