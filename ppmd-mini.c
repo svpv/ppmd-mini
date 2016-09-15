@@ -87,9 +87,7 @@ static int compress(void)
     }
     Ppmd8_EncodeSymbol(&ppmd, -1); /* EndMark */
     Ppmd8_RangeEnc_FlushData(&ppmd);
-    if (ferror(stdin) || fflush(stdout) != 0)
-	return 1;
-    return 0;
+    return fflush(stdout) != 0 || ferror(stdin);
 }
 
 static int decompress(void)
@@ -116,8 +114,9 @@ static int decompress(void)
 
     unsigned char buf[BUFSIZ];
     size_t n = 0;
+    int c;
     while (1) {
-	int c = Ppmd8_DecodeSymbol(&ppmd);
+	c = Ppmd8_DecodeSymbol(&ppmd);
 	if (cr.eof || c < 0)
 	    break;
 	buf[n++] = c;
@@ -128,9 +127,9 @@ static int decompress(void)
     }
     if (n)
 	fwrite(buf, 1, n, stdout);
-    if (ferror(stdin) || !feof(stdin) || fflush(stdout) != 0)
-	return 1;
-    return 0;
+    return fflush(stdout) != 0 || c != -1 ||
+	   !Ppmd8_RangeDec_IsFinishedOK(&ppmd) ||
+	   ferror(stdin) || getchar_unlocked() != EOF;
 }
 
 int main(int argc, char **argv)
