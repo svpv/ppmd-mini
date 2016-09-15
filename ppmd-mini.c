@@ -138,6 +138,7 @@ int main(int argc, char **argv)
     static const struct option longopts[] = {
 	{ "decompress", 0, NULL, 'd' },
 	{ "uncompress", 0, NULL, 'd' },
+	{ "keep",       0, NULL, 'k' },
 	{ "stdout",     0, NULL, 'c' },
 	{ "to-stdout",  0, NULL, 'c' },
 	{ "memory",     1, NULL, 'm' },
@@ -146,12 +147,16 @@ int main(int argc, char **argv)
 	{  NULL,        0, NULL,  0  },
     };
     bool opt_d = 0;
+    bool opt_k = 0;
     bool opt_c = 0;
     int c;
-    while ((c = getopt_long(argc, argv, "dcm:o:36h", longopts, NULL)) != -1) {
+    while ((c = getopt_long(argc, argv, "dkcm:o:36h", longopts, NULL)) != -1) {
 	switch (c) {
 	case 'd':
 	    opt_d = 1;
+	    break;
+	case 'k':
+	    opt_k = 1;
 	    break;
 	case 'c':
 	    opt_c = 1;
@@ -178,7 +183,7 @@ int main(int argc, char **argv)
     argv += optind;
     if (argc > 1) {
 	fputs("ppmid-mini: too many arguments\n", stderr);
-usage:	fputs("Usage: ppmid-mini [-d] [-c] [FILE]\n", stderr);
+usage:	fputs("Usage: ppmid-mini [-d] [-k] [-c] [FILE]\n", stderr);
 	return 1;
     }
     char *fname = argc ? argv[0] : NULL;
@@ -213,19 +218,25 @@ usage:	fputs("Usage: ppmid-mini [-d] [-c] [FILE]\n", stderr);
 	    fprintf(stderr, "ppmid-mini: cannot open %s\n", fname);
 	    return 1;
 	}
+	*dot = '.';
     }
     if (!opt_d && !opt_c) {
 	size_t len = strlen(fname);
-	char *buf[len + 6];
-	fname = memcpy(buf, fname, len);
-	memcpy(fname + len, ".ppmd", 6);
-	stdout = freopen(fname, "w", stdout);
+	char outname[len + 6];
+	memcpy(outname, fname, len);
+	memcpy(outname + len, ".ppmd", 6);
+	stdout = freopen(outname, "w", stdout);
 	if (!stdout) {
-	    fprintf(stderr, "ppmid-mini: cannot open %s\n", fname);
+	    fprintf(stderr, "ppmid-mini: cannot open %s\n", outname);
 	    return 1;
 	}
     }
-    return opt_d ? decompress() : compress();
+    int rc = opt_d ? decompress() : compress();
+    if (rc == 0 && !opt_k && !opt_c) {
+	fclose(stdin);
+	remove(fname);
+    }
+    return rc;
 }
 
 /* ex: set ts=8 sts=4 sw=4 noet: */
