@@ -98,7 +98,10 @@ static int decompress(void)
 	return 1;
     if (hdr.info >> 12 != 'I' - 'A')
 	return 1;
-    if (fseek(stdin, hdr.fnlen & 0x1FF, SEEK_CUR) != 0)
+
+    char fname[0x1FF];
+    size_t fnlen = hdr.fnlen & 0x1FF;
+    if (fread(fname, fnlen, 1, stdin) != 1)
 	return 1;
 
     opt_restore = hdr.fnlen >> 14;
