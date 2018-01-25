@@ -6,19 +6,19 @@
 #include <getopt.h>
 #include "Ppmd8.h"
 
-static void *pmalloc(void *p, size_t size)
+static void *pmalloc(ISzAllocPtr ip, size_t size)
 {
-    (void) p;
+    (void) ip;
     return malloc(size);
 }
 
-static void pfree(void *p, void *addr)
+static void pfree(ISzAllocPtr ip, void *addr)
 {
-    (void) p;
+    (void) ip;
     free(addr);
 }
 
-ISzAlloc ialloc = { pmalloc, pfree };
+static ISzAlloc ialloc = { pmalloc, pfree };
 
 struct CharWriter {
     /* Inherits from IByteOut */
