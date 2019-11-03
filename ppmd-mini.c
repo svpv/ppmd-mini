@@ -52,8 +52,8 @@ static Byte Read(void *p)
     return c;
 }
 
-static int opt_mem = 8;
-static int opt_order = 6;
+static int opt_mem = 256;
+static int opt_order = 16;
 static int opt_restore = 0;
 
 struct header {
@@ -138,30 +138,35 @@ static int decompress(void)
 int main(int argc, char **argv)
 {
     static const struct option longopts[] = {
-	{ "decompress", 0, NULL, 'd' },
-	{ "uncompress", 0, NULL, 'd' },
-	{ "keep",       0, NULL, 'k' },
 	{ "stdout",     0, NULL, 'c' },
 	{ "to-stdout",  0, NULL, 'c' },
+	{ "decompress", 0, NULL, 'd' },
+	{ "uncompress", 0, NULL, 'd' },
+	{ "force",	0, NULL, 'f' },
+	{ "help",       0, NULL, 'h' },
+	{ "keep",       0, NULL, 'k' },
 	{ "memory",     1, NULL, 'm' },
 	{ "order",      1, NULL, 'o' },
-	{ "help",       0, NULL, 'h' },
 	{  NULL,        0, NULL,  0  },
     };
-    bool opt_d = 0;
-    bool opt_k = 0;
     bool opt_c = 0;
+    bool opt_d = 0;
+    bool opt_f = 0;
+    bool opt_k = 0;
     int c;
-    while ((c = getopt_long(argc, argv, "dkcm:o:36h", longopts, NULL)) != -1) {
+    while ((c = getopt_long(argc, argv, "cdfhkm:o:123456789", longopts, NULL)) != -1) {
 	switch (c) {
+	case 'c':
+	    opt_c = 1;
+	    break;
 	case 'd':
 	    opt_d = 1;
 	    break;
+	case 'f':
+	    opt_f = 1;
+	    break;
 	case 'k':
 	    opt_k = 1;
-	    break;
-	case 'c':
-	    opt_c = 1;
 	    break;
 	case 'm':
 	    opt_mem = atoi(optarg);
@@ -169,13 +174,41 @@ int main(int argc, char **argv)
 	case 'o':
 	    opt_order = atoi(optarg);
 	    break;
-	case '3':
+	case '1':
 	    opt_mem = 1;
-	    opt_order = 5;
+	    opt_order = 2;
 	    break;
-	case '6':
+	case '2':
+	    opt_mem = 2;
+	    opt_order = 3;
+	    break;
+	case '3':
+	    opt_mem = 4;
+	    opt_order = 4;
+	    break;
+	case '4':
 	    opt_mem = 8;
 	    opt_order = 6;
+	    break;
+	case '5':
+	    opt_mem = 16;
+	    opt_order = 8;
+	    break;
+	case '6':
+	    opt_mem = 32;
+	    opt_order = 10;
+	    break;
+	case '7':
+	    opt_mem = 64;
+	    opt_order = 12;
+	    break;
+	case '8':
+	    opt_mem = 128;
+	    opt_order = 14;
+	    break;
+	case '9':
+	    opt_mem = 256;
+	    opt_order = 16;
 	    break;
 	default:
 	    goto usage;
@@ -183,9 +216,22 @@ int main(int argc, char **argv)
     }
     argc -= optind;
     argv += optind;
+    if ( opt_order < 2 || opt_order > 16 || opt_mem < 1 || opt_mem > 256 ) {
+	fputs("ppmd-mini: invalid parameters\n", stderr);
+	goto usage;
+    }
     if (argc > 1) {
-	fputs("ppmid-mini: too many arguments\n", stderr);
-usage:	fputs("Usage: ppmid-mini [-d] [-k] [-c] [FILE]\n", stderr);
+	fputs("ppmd-mini: too many arguments\n", stderr);
+usage:	fputs("Usage: ppmd-mini [args] [FILE]\n\n", stderr);
+	fputs("Arguments\n", stderr);
+	fputs("  -1 .. -9          compression level (default 9)\n", stderr);
+	fputs("  -c, --stdout      write to stdout\n", stderr);
+	fputs("  -d, --decompress  decompression\n", stderr);
+	fputs("  -f, --force       force overwrite\n", stderr);
+	fputs("  -k, --keep        keep input file\n", stderr);
+	fputs("  -m, --memory      memory usage, 1..32\n", stderr);
+	fputs("  -o, --order       order, 2..16\n", stderr);
+	fputs("  -h, --help        this page\n", stderr);
 	return 1;
     }
     char *fname = argc ? argv[0] : NULL;
@@ -194,30 +240,34 @@ usage:	fputs("Usage: ppmid-mini [-d] [-k] [-c] [FILE]\n", stderr);
     if (fname == NULL)
 	opt_c = 1;
     if (fname == NULL && opt_d && isatty(0)) {
-	fprintf(stderr, "ppmid-mini: compressed data cannot be read from a terminal\n");
+	fprintf(stderr, "ppmd-mini: compressed data cannot be read from a terminal\n");
 	return 1;
     }
     if (opt_c && !opt_d && isatty(1)) {
-	fprintf(stderr, "ppmid-mini: compressed data cannot be written to a terminal\n");
+	fprintf(stderr, "ppmd-mini: compressed data cannot be written to a terminal\nFor help, type: ppmd-mini -h\n");
 	return 1;
     }
     if (fname) {
 	stdin = freopen(fname, "r", stdin);
 	if (!stdin) {
-	    fprintf(stderr, "ppmid-mini: cannot open %s\n", fname);
+	    fprintf(stderr, "ppmd-mini: cannot open %s\n", fname);
 	    return 1;
 	}
     }
     if (opt_d && !opt_c) {
 	char *dot = strrchr(fname, '.');
 	if (dot == NULL || dot[1] != 'p' || strchr(dot, '/')) {
-	    fprintf(stderr, "ppmid-mini: unknown suffix: %s\n", fname);
+	    fprintf(stderr, "ppmd-mini: unknown suffix: %s\n", fname);
 	    return 1;
 	}
 	*dot = '\0';
+	if( access( fname, F_OK ) != -1 && !opt_f ) {
+	    fprintf(stderr, "ppmd-mini: %s file already exists\n", fname);
+	    return 1;
+	} 
 	stdout = freopen(fname, "w", stdout);
 	if (!stdout) {
-	    fprintf(stderr, "ppmid-mini: cannot open %s\n", fname);
+	    fprintf(stderr, "ppmd-mini: cannot open %s\n", fname);
 	    return 1;
 	}
 	*dot = '.';
@@ -227,9 +277,13 @@ usage:	fputs("Usage: ppmid-mini [-d] [-k] [-c] [FILE]\n", stderr);
 	char outname[len + 6];
 	memcpy(outname, fname, len);
 	memcpy(outname + len, ".ppmd", 6);
+	if( access( outname, F_OK ) != -1 && !opt_f ) {
+	    fprintf(stderr, "ppmd-mini: %s already exists\n", outname);
+	    return 1;
+	} 
 	stdout = freopen(outname, "w", stdout);
 	if (!stdout) {
-	    fprintf(stderr, "ppmid-mini: cannot open %s\n", outname);
+	    fprintf(stderr, "ppmd-mini: cannot open %s\n", outname);
 	    return 1;
 	}
     }
