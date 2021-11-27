@@ -4,7 +4,7 @@
 #include <string.h>
 #include <unistd.h> /* isatty */
 #include <getopt.h>
-#include "Ppmd8.h"
+#include "lib/Ppmd8.h"
 
 static void *pmalloc(ISzAllocPtr ip, size_t size)
 {
@@ -76,7 +76,7 @@ static int compress(void)
     CPpmd8 ppmd = { .Stream.Out = (IByteOut *) &cw };
     Ppmd8_Construct(&ppmd);
     Ppmd8_Alloc(&ppmd, opt_mem << 20, &ialloc);
-    Ppmd8_RangeEnc_Init(&ppmd);
+    Ppmd8_Init_RangeEnc(&ppmd);
     Ppmd8_Init(&ppmd, opt_order, 0);
 
     unsigned char buf[BUFSIZ];
@@ -86,7 +86,7 @@ static int compress(void)
 	    Ppmd8_EncodeSymbol(&ppmd, buf[i]);
     }
     Ppmd8_EncodeSymbol(&ppmd, -1); /* EndMark */
-    Ppmd8_RangeEnc_FlushData(&ppmd);
+    Ppmd8_Flush_RangeEnc(&ppmd);
     return fflush(stdout) != 0 || ferror(stdin);
 }
 
@@ -112,7 +112,7 @@ static int decompress(void)
     CPpmd8 ppmd = { .Stream.In = (IByteIn *) &cr };
     Ppmd8_Construct(&ppmd);
     Ppmd8_Alloc(&ppmd, opt_mem << 20, &ialloc);
-    Ppmd8_RangeDec_Init(&ppmd);
+    Ppmd8_Init_RangeDec(&ppmd);
     Ppmd8_Init(&ppmd, opt_order, opt_restore);
 
     unsigned char buf[BUFSIZ];
